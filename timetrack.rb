@@ -49,6 +49,19 @@ class TimeTrack < Thor
     raise NotImplementedError
   end
 
+  desc "backup", "dump database to timetrackYYMMDDHHMMSS.sql.gz file"
+  def backup
+    exec "sqlite3 #{$db_path} .dump | gzip > timetrack#{Time.now.strftime("%Y%m%d%H%M%S")}.sql.gz"
+  end
+
+  desc "pry", "start pry console"
+  def pry
+    require "pry"
+    require "amazing_print"
+    AmazingPrint.pry!
+    Pry.start
+  end
+
   desc "log", "print frame log"
   option :client, :aliases => :c, :type => :string, :required => false
   def log
