@@ -25,9 +25,23 @@ class TimeTrack < Thor
     frame.save
   end
 
-  desc "amend", "amend a frame"
-  def amend
-    raise NotImplementedError
+  desc "amend ID", "amend a frame"
+  option :message, :aliases => :m, :type => :string, :required => false
+  option :rate, :aliases => :r, :type => :numeric, :required => false
+  def amend(id = nil)
+    if id.nil?
+      frame = Frame.last
+    else
+      frame = Frame[id]
+    end
+
+    if frame.nil?
+      puts "Frame ##{id} not found"
+    else
+      frame.message = options[:message] if options[:message]
+      frame.rate    = options[:rate]    if options[:rate]
+      frame.save
+    end
   end
   
   desc "restart", "restart a frame"
