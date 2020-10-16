@@ -13,12 +13,4 @@ namespace :db do
     system "bundle exec sequel -E -m ./migrations -M #{schema_version - 1} #{$db_uri}"
   end
 
-  task :cli do
-    litecli = `which litecli 2> /dev/null`.strip
-    unless litecli == ''
-      exec "#{litecli} #{$db_path}"
-    else
-      exec  "sqlite3 #{$db_path}"
-    end
-  end
 end

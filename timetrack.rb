@@ -1,3 +1,5 @@
+ENV["THOR_SILENCE_DEPRECATION"] = "1" 
+
 require "thor"
 require "sequel"
 require "tty-table"
@@ -9,25 +11,47 @@ Sequel.connect($db_uri)
 require_relative "./models"
 
 class TimeTrack < Thor
-  desc "start CLIENT", "start a new time frame"
-  def start(client)
-    frame = Frame.new(start_time: DateTime.now, client: client)
+  desc "start", "start a new time frame"
+  option :message, :aliases => :m, :type => :string,   :required => false 
+  option :rate,    :aliases => :r, :type => :numeric,  :required => false
+  option :client,  :aliases => :c, :type => :string,   :required => true
+  def start
+    frame = Frame.new(start_time: DateTime.now)
+    frame.message = options[:message] if options[:message]
+    frame.rate    = options[:rate]    if options[:rate]
+    frame.client  = options[:client]  if options[:client]
     frame.save
-    puts "starting frame #{frame.id} for project #{frame.client} at #{frame.start_time}"
+    puts "starting frame #{frame.id} for client #{frame.client} at #{frame.start_time}"
   end
   
   desc "commit", "commit frame"
-  option :message, :aliases => :m, :type => :string, :required => false
+  option :message, :aliases => :m, :type => :string,   :required => true 
+  option :rate,    :aliases => :r, :type => :numeric,  :required => false
+  option :client,  :aliases => :c, :type => :string,   :required => false
+  
+  option :start,   :aliases => :s, :type => :boolean,  :required => false
   def commit
     frame = Frame.where(end_time: nil).first
     frame.end_time = DateTime.now
     frame.message = options[:message] if options[:message]
+    frame.rate    = options[:rate]    if options[:rate]
+    frame.client  = options[:client]  if options[:client]
     frame.save
+
+    if options[:start]
+      _frame = Frame.new(start_time: DateTime.now)
+      _frame.message = frame.message 
+      _frame.rate    = frame.rate
+      _frame.client  = frame.client
+      _frame.save
+      puts "starting frame #{_frame.id} for client #{_frame.client} at #{_frame.start_time}"
+    end
   end
 
   desc "amend ID", "amend a frame"
-  option :message, :aliases => :m, :type => :string, :required => false
-  option :rate, :aliases => :r, :type => :numeric, :required => false
+  option :message, :aliases => :m, :type => :string,  :required => false 
+  option :rate,    :aliases => :r, :type => :numeric, :required => false
+  option :client,  :aliases => :c, :type => :string,  :required => false
   def amend(id = nil)
     if id.nil?
       frame = Frame.last
@@ -40,15 +64,11 @@ class TimeTrack < Thor
     else
       frame.message = options[:message] if options[:message]
       frame.rate    = options[:rate]    if options[:rate]
+      frame.client  = options[:client]  if options[:client]
       frame.save
     end
   end
   
-  desc "restart", "restart a frame"
-  def restart
-    raise NotImplementedError
-  end
-
   desc "backup", "dump database to timetrackYYMMDDHHMMSS.sql.gz file"
   def backup
     exec "sqlite3 #{$db_path} .dump | gzip > timetrack#{Time.now.strftime("%Y%m%d%H%M%S")}.sql.gz"
@@ -60,6 +80,16 @@ class TimeTrack < Thor
     require "amazing_print"
     AmazingPrint.pry!
     Pry.start
+  end
+  
+  desc "db", "run database console"
+  def db 
+    litecli = `which litecli 2> /dev/null`.strip
+    unless litecli == ''
+      exec "#{litecli} #{$db_path}"
+    else
+      exec  "sqlite3 #{$db_path}"
+    end
   end
 
   desc "log", "print frame log"
