@@ -12,9 +12,9 @@ require_relative "./models"
 
 class TimeTrack < Thor
   desc "start", "start a new time frame"
-  option :message, :aliases => :m, :type => :string,   :required => false 
-  option :rate,    :aliases => :r, :type => :numeric,  :required => false
-  option :client,  :aliases => :c, :type => :string,   :required => true
+  option :message, :aliases => "-m", :type => :string,   :required => false 
+  option :rate,    :aliases => "-m", :type => :numeric,  :required => false
+  option :client,  :aliases => "-c", :type => :string,   :required => true
   def start
     frame = Frame.new(start_time: DateTime.now)
     frame.message = options[:message] if options[:message]
@@ -25,9 +25,9 @@ class TimeTrack < Thor
   end
   
   desc "commit", "commit frame"
-  option :message, :aliases => :m, :type => :string,   :required => true 
-  option :rate,    :aliases => :r, :type => :numeric,  :required => false
-  option :client,  :aliases => :c, :type => :string,   :required => false
+  option :message, :aliases => "-m", :type => :string,   :required => true 
+  option :rate,    :aliases => "-r", :type => :numeric,  :required => false
+  option :client,  :aliases => "-c", :type => :string,   :required => false
   
   option :start,   :aliases => :s, :type => :boolean,  :required => false
   def commit
@@ -49,9 +49,9 @@ class TimeTrack < Thor
   end
 
   desc "amend ID", "amend a frame"
-  option :message, :aliases => :m, :type => :string,  :required => false 
-  option :rate,    :aliases => :r, :type => :numeric, :required => false
-  option :client,  :aliases => :c, :type => :string,  :required => false
+  option :message, :aliases => "-m", :type => :string,  :required => false 
+  option :rate,    :aliases => "-r", :type => :numeric, :required => false
+  option :client,  :aliases => "-c", :type => :string,  :required => false
   def amend(id = nil)
     if id.nil?
       frame = Frame.last
@@ -92,9 +92,50 @@ class TimeTrack < Thor
     end
   end
 
-  desc "log", "print frame log"
-  option :client, :aliases => :c, :type => :string, :required => false
-  def log
+  desc "chart", "show chart"
+  def chart
+    days = (0..60).collect do |i|
+      (Date.today - i)
+    end.reverse
+
+    table = TTY::Table.new()
+
+    first_date = Frame.order(Sequel.asc(:start_time)).first.start_time.to_date
+
+    workdays      = 0
+    minutes_total = 0
+    cost_total    = 0
+
+    days.each do |d|
+      next if d < first_date
+      minutes = 0
+      cost    = 0
+      workdays += 1 unless ["Sat", "Sun"].include?(d.strftime("%a"))
+      Frame.where { start_time >= d.strftime("%Y-%m-%d 00:00:00") }
+           .where { start_time <  (d + 1).strftime("%Y-%m-%d 00:00:00") }
+            .each do | f |
+              minutes       += f.minutes(billable: true)
+              minutes_total += f.minutes(billable: true)
+              cost          += f.cost
+              cost_total    += f.cost
+            end
+
+      table << [ 
+        d.strftime("%a %d %b"),
+        minutes.time_human,
+        cost,
+        "$" * (minutes / 15)
+      ]
+    end
+
+    puts table.render
+    puts 
+    puts "#{workdays} Workdays, Hours avg #{(minutes_total / workdays).time_human}, Cost avg #{(cost_total / workdays)}"
+  end
+
+  desc "log", "query frame log"
+  option :client, :aliases => "-c", :type => :string, :required => false
+  def log 
     table = TTY::Table.new()
     total_time     = 0
     total_billable = 0
@@ -111,4 +152,7 @@ class TimeTrack < Thor
     puts 
     puts "TOTAL: pure #{total_time.time_human}, billable #{total_billable.time_human}, cost #{total_cost}"
   end
+
+  map "l" => "log"
+  map "t" => "chart"
 end
