@@ -102,7 +102,8 @@ class TimeTrack < Thor
 
     first_date = Frame.order(Sequel.asc(:start_time)).first.start_time.to_date
 
-    workdays      = 0
+    weekdays      = 0
+    weekends      = 0
     minutes_total = 0
     cost_total    = 0
 
@@ -110,7 +111,8 @@ class TimeTrack < Thor
       next if d < first_date
       minutes = 0
       cost    = 0
-      workdays += 1 unless ["Sat", "Sun"].include?(d.strftime("%a"))
+      weekdays += 1 unless ["Sat", "Sun"].include?(d.strftime("%a"))
+      weekends += 1     if ["Sat", "Sun"].include?(d.strftime("%a"))
       Frame.where { start_time >= d.strftime("%Y-%m-%d 00:00:00") }
            .where { start_time <  (d + 1).strftime("%Y-%m-%d 00:00:00") }
             .each do | f |
@@ -120,17 +122,29 @@ class TimeTrack < Thor
               cost_total    += f.cost
             end
 
+      bar = ""
+      _c = 0
+      (1..minutes / 15).each do 
+        _c += 1
+        if _c == 4
+          _c = 0
+          bar += "/"
+        else
+          bar += "-"
+        end
+      end
+
       table << [ 
         d.strftime("%a %d %b"),
         minutes.time_human,
         cost,
-        "$" * (minutes / 15)
+        bar
       ]
     end
 
     puts table.render
     puts 
-    puts "#{workdays} Workdays, Hours avg #{(minutes_total / workdays).time_human}, Cost avg #{(cost_total / workdays)}"
+    puts "#{weekdays} WD, #{weekends} WE, AVG Hours #{(minutes_total / weekdays).time_human}, Cost #{(cost_total / weekdays)}"
   end
 
   desc "log", "query frame log"
