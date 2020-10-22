@@ -24,14 +24,18 @@ class TimeTrack < Thor
     puts "starting frame #{frame.id} for client #{frame.client} at #{frame.start_time}"
   end
   
-  desc "commit", "commit frame"
-  option :message, :aliases => "-m", :type => :string,   :required => true 
+  desc "commit ID", "commit frame"
+  option :message, :aliases => "-m", :type => :string,   :required => false 
   option :rate,    :aliases => "-r", :type => :numeric,  :required => false
   option :client,  :aliases => "-c", :type => :string,   :required => false
   
   option :start,   :aliases => :s, :type => :boolean,  :required => false
-  def commit
-    frame = Frame.where(end_time: nil).first
+  def commit(id = nil)
+    if id.nil?
+      frame = Frame.where(end_time: nil).first
+    else
+      frame = Frame[id]
+    end
     frame.end_time = DateTime.now
     frame.message = options[:message] if options[:message]
     frame.rate    = options[:rate]    if options[:rate]
@@ -144,7 +148,7 @@ class TimeTrack < Thor
 
     puts table.render
     puts 
-    puts "#{weekdays} WD, #{weekends} WE, AVG Hours #{(minutes_total / weekdays).time_human}, Cost #{(cost_total / weekdays)}"
+    puts "#{weekdays} WD, #{weekends} WE, AVG Hours #{(minutes_total / weekdays).time_human}, Cost #{(cost_total / weekdays).round(2)}"
   end
 
   desc "log", "query frame log"
