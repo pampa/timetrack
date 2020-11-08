@@ -32,4 +32,5 @@ class Frame < Sequel::Model
 end
 
 class Invoice < Sequel::Model
+  one_to_many :frames
 end

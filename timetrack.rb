@@ -152,16 +152,22 @@ class TimeTrack < Thor
   end
 
   desc "log", "query frame log"
-  option :client, :aliases => "-c", :type => :string,  :required => false
-  option :today,                    :type => :boolean, :required => false
-  option :yesterday,                :type => :boolean, :required => false
-  option :week,                     :type => :boolean, :required => false
+  option :client,  :aliases => "-c", :type => :string,  :required => false
+  option :today,                     :type => :boolean, :required => false
+  option :yesterday,                 :type => :boolean, :required => false
+  option :week,                      :type => :boolean, :required => false
+  option :invoice, :aliases => "-i", :type => :numeric, :required => false
   def log 
     table = TTY::Table.new()
     total_time     = 0
     total_billable = 0
     total_cost     = 0
-    query = Frame.where(invoice_id: nil)
+
+    if options[:invoice]
+      query = Frame.where(invoice_id: options[:invoice].to_i)
+    else
+      query = Frame.where(invoice_id: nil)
+    end
     query = query.where { start_time >= Date.today.strftime("%Y-%m-%d 00:00:00") }       if options[:today]
     query = query.where { start_time >= (Date.today - 1).strftime("%Y-%m-%d 00:00:00") } if options[:yesterday]
     query = query.where { end_time   <  Date.today.strftime("%Y-%m-%d 00:00:00") } if options[:yesterday]
@@ -178,6 +184,51 @@ class TimeTrack < Thor
     puts "TOTAL: pure #{total_time.time_human}, billable #{total_billable.time_human}, cost #{total_cost}"
   end
 
+  desc "invoice", "show invoices"
+  option :new,    :aliases => "-n", :type => :boolean, :required => false
+  option :client, :aliases => "-c", :type => :string,  :required => false
+  option :paid,   :aliases => "-p", :type => :numeric, :required => false
+  option :title,  :aliases => "-t", :type => :string,  :required => false
+  option :add,    :aliases => "-a", :type => :array,   :required => false
+  def invoice(id = nil)
+    invoice = Invoice.new(datetime: Time.now) if id.nil? && options[:new]
+    invoice = Invoice[id] unless id.nil?
+
+    unless invoice.nil?
+      invoice.client = options[:client] if options[:client]
+      invoice.title  = options[:title]  if options[:title]
+      invoice.paid   = options[:paid]   if options[:paid]
+      invoice.save
+
+      if options[:add]
+        table = TTY::Table.new()
+        options[:add].each do |f|
+          _f = Frame[f.to_i]
+          table << _f.as_array
+          invoice.add_frame _f
+        end
+        puts table.render
+        puts
+      end
+    end
+
+    table = TTY::Table.new()
+    Invoice.order(Sequel.asc(:datetime)).each do |i|
+      cost = 0 
+      i.frames.each { |f| cost += f.cost }
+
+      table << ["##{i.id}",
+                i.datetime.strftime("%Y-%m-%d"),
+                "[#{i.client}]",
+                i.title,
+                cost,
+                i.paid
+                ]
+    end
+    puts table.render
+  end
+
   map "l" => "log"
   map "t" => "chart"
+  map "i" => "invoice"
 end
