@@ -154,6 +154,7 @@ class TimeTrack < Thor
   desc "log", "query frame log"
   option :client, :aliases => "-c", :type => :string,  :required => false
   option :today,                    :type => :boolean, :required => false
+  option :yesterday,                :type => :boolean, :required => false
   option :week,                     :type => :boolean, :required => false
   def log 
     table = TTY::Table.new()
@@ -161,7 +162,9 @@ class TimeTrack < Thor
     total_billable = 0
     total_cost     = 0
     query = Frame.where(invoice_id: nil)
-    query = query.where { start_time >= Date.today.strftime("%Y-%m-%d 00:00:00") }      if options[:today]
+    query = query.where { start_time >= Date.today.strftime("%Y-%m-%d 00:00:00") }       if options[:today]
+    query = query.where { start_time >= (Date.today - 1).strftime("%Y-%m-%d 00:00:00") } if options[:yesterday]
+    query = query.where { end_time   <  Date.today.strftime("%Y-%m-%d 00:00:00") } if options[:yesterday]
     query = query.where { start_time >= (Date.today - 7).strftime("%Y-%m-%d 00:00:00") } if options[:week]
     query = query.where(client: options[:client]) if options[:client]
     query.order(:start_time).each do |frame|
