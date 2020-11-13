@@ -222,7 +222,7 @@ class TimeTrack < Thor
                 "[#{i.client}]",
                 i.title,
                 cost,
-                i.paid
+                cost > i.paid ? i.paid : "paid"
                 ]
     end
     puts table.render
