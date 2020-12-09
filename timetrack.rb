@@ -56,6 +56,8 @@ class TimeTrack < Thor
   option :message, :aliases => "-m", :type => :string,  :required => false 
   option :rate,    :aliases => "-r", :type => :numeric, :required => false
   option :client,  :aliases => "-c", :type => :string,  :required => false
+  option :end,     :aliases => "-e", :type => :numeric, :required => false
+  option :start,   :aliases => "-s", :type => :numeric, :required => false
   def amend(id = nil)
     if id.nil?
       frame = Frame.last
@@ -69,6 +71,14 @@ class TimeTrack < Thor
       frame.message = options[:message] if options[:message]
       frame.rate    = options[:rate]    if options[:rate]
       frame.client  = options[:client]  if options[:client]
+      
+      if options[:end]
+        frame.end_time = frame.end_time + (options[:end] * 60)
+      end
+      
+      if options[:start]
+        frame.start_time = frame.start_time + (options[:start] * 60)
+      end
       frame.save
     end
   end
@@ -214,13 +224,17 @@ class TimeTrack < Thor
 
     table = TTY::Table.new()
     Invoice.order(Sequel.asc(:datetime)).each do |i|
-      cost = 0 
-      i.frames.each { |f| cost += f.cost }
+      cost     = 0 
+      billable = 0
+      i.frames.each { |f| cost += f.cost; billable += f.minutes(billable: true) }
+
+      i.paid = 0 if i.paid.nil?
 
       table << ["##{i.id}",
                 i.datetime.strftime("%Y-%m-%d"),
                 "[#{i.client}]",
                 i.title,
+                billable.time_human,
                 cost,
                 cost > i.paid ? i.paid : "paid"
                 ]
